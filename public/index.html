@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -83,7 +82,6 @@
             backdrop-filter: blur(20px);
             background: rgba(10, 10, 10, 0.8);
             border-bottom: 1px solid rgba(0, 212, 255, 0.1);
-            transition: all 0.3s ease;
         }
 
         .logo {
@@ -93,8 +91,6 @@
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
             animation: glow 2s ease-in-out infinite alternate;
         }
 
@@ -190,7 +186,6 @@
             background: linear-gradient(135deg, var(--primary), var(--accent));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
         }
 
         .hero-tagline {
@@ -303,7 +298,6 @@
             background: linear-gradient(135deg, var(--primary), var(--accent));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
         }
 
         .stat-label {
@@ -903,6 +897,7 @@
                 <div class="admin-tab" onclick="switchTab('contact')">Contact</div>
                 <div class="admin-tab" onclick="switchTab('theme')">Theme</div>
                 <div class="admin-tab" onclick="switchTab('stats')">Stats</div>
+                <div class="admin-tab" onclick="switchTab('password')">Password</div>
             </div>
 
             <div class="admin-panel active" id="panel-general">
@@ -1016,12 +1011,81 @@
                 </div>
                 <button class="save-btn" onclick="saveStats()">📊 Update Stats</button>
             </div>
+
+            <div class="admin-panel" id="panel-password">
+                <h3>🔐 Change Admin Password</h3>
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <input type="password" id="current-pass" placeholder="Enter current password">
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="new-pass" placeholder="Enter new password (min 6 chars)">
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="confirm-pass" placeholder="Confirm new password">
+                </div>
+                <button class="save-btn" onclick="changePassword()">🔑 Change Password</button>
+                <p style="color: rgba(255,255,255,0.5); margin-top: 15px; font-size: 0.9rem;">
+                    Note: Password change requires server restart to take full effect.
+                </p>
+            </div>
         </div>
     </div>
 
     <script>
+        // EMBEDDED DEFAULT DATA - Works even if API fails!
+        const DEFAULT_DATA = {
+            name: "Shadow Official",
+            title: "Full Stack Developer & Automation Expert",
+            tagline: "Transforming Ideas Into Digital Reality",
+            bio: "Passionate developer specializing in web development, automation, and bot creation. Building high-performance solutions with cutting-edge technologies.",
+            skills: [
+                { name: "Web Development", level: 95, icon: "🌐" },
+                { name: "Bot Automation", level: 90, icon: "🤖" },
+                { name: "JavaScript/Node.js", level: 92, icon: "⚡" },
+                { name: "Python", level: 88, icon: "🐍" },
+                { name: "React/Vue", level: 85, icon: "⚛️" },
+                { name: "API Development", level: 90, icon: "🔌" },
+                { name: "Database Design", level: 82, icon: "🗄️" },
+                { name: "UI/UX Design", level: 78, icon: "🎨" }
+            ],
+            projects: [
+                { id: 1, title: "Advanced Web Scraper", description: "Automated data extraction system with AI-powered parsing and real-time monitoring.", tech: ["Python", "Selenium", "BeautifulSoup"], image: "🕷️", link: "#" },
+                { id: 2, title: "WhatsApp Automation Suite", description: "Complete WhatsApp business automation with scheduling, bulk messaging, and analytics.", tech: ["Node.js", "WhatsApp API", "MongoDB"], image: "💬", link: "#" },
+                { id: 3, title: "E-Commerce Platform", description: "Full-stack e-commerce solution with payment integration and inventory management.", tech: ["React", "Node.js", "Stripe"], image: "🛒", link: "#" },
+                { id: 4, title: "Social Media Bot", description: "Intelligent social media automation tool for engagement and content scheduling.", tech: ["Python", "AI/ML", "APIs"], image: "📱", link: "#" }
+            ],
+            services: [
+                { title: "Web Development", desc: "Custom websites & web apps", icon: "💻" },
+                { title: "Bot Creation", desc: "WhatsApp, Telegram & custom bots", icon: "🤖" },
+                { title: "Automation", desc: "Business process automation", icon: "⚙️" },
+                { title: "API Integration", desc: "Third-party API solutions", icon: "🔗" }
+            ],
+            contact: {
+                whatsapp: "923709515870",
+                telegram: "@shadowhacrrr",
+                youtube: "shadowHERE.460",
+                email: "shadow@official.com"
+            },
+            theme: {
+                primary: "#00d4ff",
+                secondary: "#7000ff",
+                accent: "#ff006e",
+                dark: "#0a0a0a",
+                card: "#111111"
+            },
+            stats: {
+                projects: 50,
+                clients: 30,
+                experience: 3,
+                satisfaction: 99
+            }
+        };
+
         let authToken = localStorage.getItem('adminToken');
-        let portfolioData = null;
+        let portfolioData = DEFAULT_DATA; // Start with embedded data immediately!
 
         function createParticles() {
             const container = document.getElementById('particles');
@@ -1035,27 +1099,41 @@
             }
         }
 
+        // RENDER IMMEDIATELY with embedded data
         window.addEventListener('load', () => {
             setTimeout(() => {
                 document.getElementById('loader').classList.add('hidden');
             }, 1500);
             createParticles();
-            loadData();
+
+            // Render with default data FIRST (instant)
+            renderAll();
+
+            // Then try to load from API (will update if successful)
+            loadDataFromAPI();
         });
 
-        async function loadData() {
+        function renderAll() {
+            renderSkills();
+            renderProjects();
+            renderServices();
+            renderContact();
+            updateHero();
+            updateStats();
+            updateTheme();
+        }
+
+        async function loadDataFromAPI() {
             try {
                 const res = await fetch('/api/data');
-                portfolioData = await res.json();
-                renderSkills();
-                renderProjects();
-                renderServices();
-                renderContact();
-                updateHero();
-                updateStats();
-                updateTheme();
+                if (res.ok) {
+                    const data = await res.json();
+                    portfolioData = data;
+                    renderAll();
+                    console.log('✅ Data loaded from API');
+                }
             } catch (e) {
-                console.log('Using default data');
+                console.log('⚠️ Using embedded default data');
             }
         }
 
@@ -1072,6 +1150,8 @@
                     <div class="skill-percent">${skill.level}%</div>
                 </div>
             `).join('');
+            // Re-observe new elements
+            document.querySelectorAll('.skill-card').forEach(el => observer.observe(el));
         }
 
         function renderProjects() {
@@ -1089,6 +1169,7 @@
                     </div>
                 </div>
             `).join('');
+            document.querySelectorAll('.project-card').forEach(el => observer.observe(el));
         }
 
         function renderServices() {
@@ -1101,6 +1182,7 @@
                     <p class="service-desc">${service.desc}</p>
                 </div>
             `).join('');
+            document.querySelectorAll('.service-card').forEach(el => observer.observe(el));
         }
 
         function renderContact() {
@@ -1129,6 +1211,7 @@
                     <div class="contact-value">${c.email}</div>
                 </a>
             `;
+            document.querySelectorAll('.contact-card').forEach(el => observer.observe(el));
         }
 
         function updateHero() {
@@ -1228,10 +1311,10 @@
                     closeModal();
                     showDashboard();
                 } else {
-                    alert('Wrong password!');
+                    alert('Wrong password! Try: r749926n');
                 }
             } catch (e) {
-                alert('Error: ' + e.message);
+                alert('Server error! Please check deployment.');
             }
         }
 
@@ -1258,22 +1341,24 @@
                 const res = await fetch('/api/admin/data', {
                     headers: { 'Authorization': authToken }
                 });
-                const data = await res.json();
-                document.getElementById('edit-name').value = data.name;
-                document.getElementById('edit-title').value = data.title;
-                document.getElementById('edit-bio').value = data.bio;
-                document.getElementById('edit-whatsapp').value = data.contact.whatsapp;
-                document.getElementById('edit-telegram').value = data.contact.telegram;
-                document.getElementById('edit-youtube').value = data.contact.youtube;
-                document.getElementById('edit-email').value = data.contact.email;
-                document.getElementById('edit-primary').value = data.theme.primary;
-                document.getElementById('edit-secondary').value = data.theme.secondary;
-                document.getElementById('edit-accent').value = data.theme.accent;
-                document.getElementById('edit-stat-projects').value = data.stats.projects;
-                document.getElementById('edit-stat-clients').value = data.stats.clients;
-                document.getElementById('edit-stat-exp').value = data.stats.experience;
-                document.getElementById('edit-stat-sat').value = data.stats.satisfaction;
-                loadProjectsList(data.projects);
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('edit-name').value = data.name;
+                    document.getElementById('edit-title').value = data.title;
+                    document.getElementById('edit-bio').value = data.bio;
+                    document.getElementById('edit-whatsapp').value = data.contact.whatsapp;
+                    document.getElementById('edit-telegram').value = data.contact.telegram;
+                    document.getElementById('edit-youtube').value = data.contact.youtube;
+                    document.getElementById('edit-email').value = data.contact.email;
+                    document.getElementById('edit-primary').value = data.theme.primary;
+                    document.getElementById('edit-secondary').value = data.theme.secondary;
+                    document.getElementById('edit-accent').value = data.theme.accent;
+                    document.getElementById('edit-stat-projects').value = data.stats.projects;
+                    document.getElementById('edit-stat-clients').value = data.stats.clients;
+                    document.getElementById('edit-stat-exp').value = data.stats.experience;
+                    document.getElementById('edit-stat-sat').value = data.stats.satisfaction;
+                    loadProjectsList(data.projects);
+                }
             } catch (e) {
                 console.error('Admin load error:', e);
             }
@@ -1378,6 +1463,41 @@
                 headers: { 'Authorization': authToken }
             });
             loadAdminData();
+        }
+
+        async function changePassword() {
+            const current = document.getElementById('current-pass').value;
+            const newPass = document.getElementById('new-pass').value;
+            const confirm = document.getElementById('confirm-pass').value;
+
+            if (newPass !== confirm) {
+                alert('New passwords do not match!');
+                return;
+            }
+            if (newPass.length < 6) {
+                alert('Password must be at least 6 characters!');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/change-password', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': authToken
+                    },
+                    body: JSON.stringify({ currentPassword: current, newPassword: newPass })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Password changed! Please login again with new password.');
+                    logout();
+                } else {
+                    alert(data.error || 'Failed to change password');
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
         }
 
         async function updateData(data) {
